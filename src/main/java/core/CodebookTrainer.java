@@ -1,5 +1,7 @@
 package main.java.core;
 
+import main.java.model.Codebook;
+
 import java.util.List;
 import java.util.Random;
 

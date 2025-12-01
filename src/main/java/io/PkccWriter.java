@@ -1,4 +1,10 @@
-package main.java.core;
+package main.java.io;
+
+import main.java.core.HuffmanCodec;
+import main.java.model.Codebook;
+import main.java.model.EncodedImage;
+import main.java.app.Main;
+import main.java.app.PkcCompressor;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -37,12 +43,39 @@ public class PkccWriter {
             }
         }
 
-        // Indices (simple 16-bit each for now)
+        // 1) Build frequency table
+        int[] freq = new int[k];
         for (int idx : indices) {
-            if(PkcCompressor.K <= 256) { // If K can be stored in only 1 byte, do so
-                dos.writeByte(idx); // writes the low 8 bits
-            } else {
-                dos.writeShort(idx); // Otherwise, use 2 bytes
+            if (idx < 0 || idx >= k) {
+                throw new IOException("Index out of range: " + idx);
+            }
+            freq[idx]++;
+        }
+
+        // 2) Build code lengths
+        int[] codeLen = HuffmanCodec.buildCodeLengths(freq);
+
+        // 3) Build canonical codes
+        int[] codeBits = new int[k];
+        HuffmanCodec.buildCanonicalCodes(codeLen, codeBits);
+
+        // 4) Write code lengths (K bytes, zero = unused symbol)
+        System.out.println("Writer: writing Huffman code lengths for " + k + " symbols");
+        for (int s = 0; s < k; s++) {
+            int len = codeLen[s];
+            if (len > 255) {
+                throw new IOException("Code length too large: " + len);
+            }
+            dos.writeByte(len); // 0..255
+        }
+
+        // 5) Write Huffman-coded indices as bitstream
+        System.out.println("Writer: writing Huffman-coded indices: " + indices.length + " symbols");
+        try (BitOutputStream bout = new BitOutputStream(dos)) {
+            for (int idx : indices) {
+                int len = codeLen[idx];
+                int code = codeBits[idx];
+                bout.writeBits(code, len);
             }
         }
     }

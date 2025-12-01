@@ -1,4 +1,11 @@
-package main.java.core;
+package main.java.io;
+
+import main.java.core.HuffmanCodec;
+import main.java.core.HuffmanNode;
+import main.java.model.Codebook;
+import main.java.model.EncodedImage;
+import main.java.app.Main;
+import main.java.app.PkcCompressor;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -41,15 +48,28 @@ public class PkccReader {
         int blocksX = width  / blockW;
         int blocksY = height / blockH;
         int totalBlocks = blocksX * blocksY;
+
+        // --- Version 2: Huffman-coded indices ---
+
+        // 1) Read code lengths
+        int[] codeLen = new int[k];
+        for (int s = 0; s < k; s++) {
+            codeLen[s] = dis.readUnsignedByte(); // 0..255
+        }
+
+        // 2) Rebuild canonical codes
+        int[] codeBits = new int[k];
+        HuffmanCodec.buildCanonicalCodes(codeLen, codeBits);
+
+        // 3) Build decoding tree
+        HuffmanNode decodeRoot = HuffmanCodec.buildDecodingTree(codeLen, codeBits);
+
+        // 4) Decode exactly totalBlocks symbols from bitstream
         int[] indices = new int[totalBlocks];
-
+        BitInputStream bin = new BitInputStream(dis);
         for (int i = 0; i < totalBlocks; i++) {
-            if(PkcCompressor.K <= 256) {
-                indices[i] = dis.readUnsignedByte(); // If K can be stored in only 1 byte, do so
-            } else {
-                indices[i] = dis.readUnsignedShort(); // Otherwise, use 2 bytes
-            }
-
+            int sym = HuffmanCodec.decodeSymbol(bin, decodeRoot);
+            indices[i] = sym;
         }
 
         return new EncodedImage(width, height, blockW, blockH, cb, indices);

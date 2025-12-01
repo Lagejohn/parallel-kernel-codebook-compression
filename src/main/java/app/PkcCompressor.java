@@ -1,4 +1,12 @@
-package main.java.core;
+package main.java.app;
+
+import main.java.core.BlockEncoder;
+import main.java.core.CodebookTrainer;
+import main.java.core.ImageUtils;
+import main.java.core.TrainingVectorCollector;
+import main.java.model.*;
+import main.java.io.PkccReader;
+import main.java.io.PkccWriter;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;

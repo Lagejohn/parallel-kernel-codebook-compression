@@ -1,5 +1,7 @@
 package main.java.core;
 
+import main.java.model.GrayscaleImage;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;

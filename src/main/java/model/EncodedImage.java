@@ -1,4 +1,4 @@
-package main.java.core;
+package main.java.model;
 
 public final class EncodedImage {
     private final int width, height;

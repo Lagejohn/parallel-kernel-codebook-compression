@@ -1,5 +1,9 @@
 package main.java.core;
 
+import main.java.model.Codebook;
+import main.java.model.EncodedImage;
+import main.java.model.GrayscaleImage;
+
 import java.io.IOException;
 
 public final class BlockEncoder {

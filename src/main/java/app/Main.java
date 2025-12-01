@@ -1,9 +1,9 @@
-package main.java.core;
+package main.java.app;
 
 import java.io.IOException;
 
 public class Main {
-    public static final byte VERSION = 0x0001;
+    public static final byte VERSION = 0x0002;
 
     public static void main(String[] args) throws IOException {
         System.out.printf("Parallel-Kernel Codebook Compression Codec v%s\n\n", VERSION);

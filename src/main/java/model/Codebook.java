@@ -1,4 +1,4 @@
-package main.java.core;
+package main.java.model;
 
 public final class Codebook {
     private final int width, height;
