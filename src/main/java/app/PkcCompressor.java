@@ -17,8 +17,8 @@ import java.util.List;
 
 
 public class PkcCompressor {
-    public static final int KERNEL_WIDTH = 1;
-    public static final int KERNEL_HEIGHT = 3;
+    public static final int KERNEL_WIDTH = 2;
+    public static final int KERNEL_HEIGHT = 2;
     public static final int K = 256;
     public static final float SAMPLE_RATE = 0.25F;
     public static final int MAX_ITER = 10;
@@ -31,11 +31,14 @@ public class PkcCompressor {
     }
 
 
-    public void compress() throws IOException {
+    public void compress(boolean multithreading) throws IOException, InterruptedException {
+        System.out.println("Using multithreading: "+multithreading);
+        int cores = Runtime.getRuntime().availableProcessors();
         if (K > 256) {
             throw new IllegalArgumentException("This codec currently supports K <= 256 (one-byte indices).");
         }
 
+        // 1) Process image into grayscale format
         GrayscaleImage image = new GrayscaleImage(originalFilePath);
         System.out.println("Input image: " + image.getWidth() + "x" + image.getHeight());
 
@@ -45,14 +48,24 @@ public class PkcCompressor {
         System.out.println("Training vectors: " + training.size());
 
         // 3) Train codebook
-        Codebook cb = CodebookTrainer.trainKMeans(training, KERNEL_WIDTH, KERNEL_HEIGHT, K, MAX_ITER, 1234L);
+        Codebook cb;
+        if(multithreading) {
+            cb = CodebookTrainer.trainKMeansParallel(training, KERNEL_WIDTH, KERNEL_HEIGHT, K, MAX_ITER, 1234L, cores);
+        } else {
+            cb = CodebookTrainer.trainKMeans(training, KERNEL_WIDTH, KERNEL_HEIGHT, K, MAX_ITER, 1234L);
+        }
         System.out.println("Codebook size: " + cb.getSize());
 
         // 4) Encode image with codebook
-        EncodedImage encoded = BlockEncoder.encode(image, cb);
+        EncodedImage encoded;
+        if(multithreading) {
+            encoded = BlockEncoder.encodeParallel(image, cb, cores);
+        } else {
+            encoded = BlockEncoder.encode(image, cb);
+        }
         System.out.println("Encoded blocks: " + encoded.getBlockIndices().length);
 
-        // 5) Write to file (no Huffman yet)
+        // 5) Write to file
         try (OutputStream out = new BufferedOutputStream(Files.newOutputStream(Path.of(originalFilePath.split("\\.")[0] + "-compressed.pkcc")))) {
             System.out.println("About to write .pkcc file...");
             PkccWriter.write(out, encoded);
@@ -61,13 +74,14 @@ public class PkcCompressor {
 
     }
 
-    public void decompress() {
+    public void decompress(boolean multithreading) throws InterruptedException {
+        System.out.println("Using multithreading: "+multithreading);
         try (InputStream in = new BufferedInputStream(Files.newInputStream(Path.of(originalFilePath)))) {
-            System.out.println("Opened InputStream for MVQ file");
+            System.out.println("Opened InputStream for PKCC file");
 
             // 2) Read encoded image structure
             EncodedImage encoded = PkccReader.read(in);
-            System.out.println("MvqReader.read() returned EncodedImage");
+            System.out.println("PkccReader.read() returned EncodedImage");
 
             System.out.printf("EncodedImage: %dx%d, block=%dx%d, codebookSize=%d, blocks=%d%n",
                     encoded.getWidth(),
@@ -78,9 +92,17 @@ public class PkcCompressor {
                     encoded.getBlockIndices().length);
 
             // 3) Decode indices → GrayscaleImage
-            GrayscaleImage gray = BlockEncoder.decode(encoded);
-            System.out.println("BlockEncoder.decode() produced GrayscaleImage: "
-                    + gray.getWidth() + "x" + gray.getHeight());
+            GrayscaleImage gray;
+            if(multithreading) {
+                int cores = Runtime.getRuntime().availableProcessors();
+                gray = BlockEncoder.decodeParallel(encoded, cores);
+                System.out.println("BlockEncoder.decodeParallel() produced GrayscaleImage: "
+                        + gray.getWidth() + "x" + gray.getHeight());
+            } else {
+                gray = BlockEncoder.decode(encoded);
+                System.out.println("BlockEncoder.decode() produced GrayscaleImage: "
+                        + gray.getWidth() + "x" + gray.getHeight());
+            }
 
             // 4) Convert GrayscaleImage → BufferedImage
             BufferedImage output = ImageUtils.fromGrayscale(gray);
